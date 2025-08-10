@@ -86,6 +86,19 @@ const App = () => {
             <p className="text-lg mt-2">
               You scored <span className="font-bold">{score}</span> out of {questions.length}
             </p>
+            {/* Reset button */}
+            <button
+              className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
+              onClick={() => {
+                setScore(0);
+                setCurrentQuestion(0);
+                setShowScore(false);
+                setAnswered(false);
+                setSelectAnswer(null);
+              }}
+            >
+              🔄 Reset Quiz
+            </button>
           </div> :
           <div>
             {/* Flag images */}
