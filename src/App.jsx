@@ -9,6 +9,9 @@ const App = () => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [answers, setAnswers] = useState([]);
+  const [startedAt, setStartedAt] = useState(null);
+  const [finishedAt, setFinishedAt] = useState(null);
 
   // Fisher–Yates shuffle for fair randomization
   const shuffle = (array) => {
@@ -49,6 +52,9 @@ const App = () => {
       });
 
       setQuestions(formattedQuestions);
+      setAnswers([]);
+      setStartedAt(Date.now());
+      setFinishedAt(null);
     } catch (err) {
       if (err?.name !== 'AbortError') {
         setError(err?.message || 'Unknown error while loading countries');
@@ -106,6 +112,19 @@ const App = () => {
     setAnswered(true);
     setSelectAnswer(index);
     if (isCorrect) setScore((prev) => prev + 1);
+    const current = questions[currentQuestion];
+    const selectedAnswerText = current.answerOptions[index]?.answerText;
+    setAnswers((prev) => [
+      ...prev,
+      {
+        questionIndex: currentQuestion,
+        countryName: current.countryName,
+        flag: current.flag,
+        selected: selectedAnswerText,
+        isCorrect,
+        correct: current.countryName,
+      },
+    ]);
   }
   const NextQuestion = () => {
     setAnswered(false);
@@ -114,6 +133,7 @@ const App = () => {
       const next = prev + 1;
       if (next < questions.length) return next;
       setShowScore(true);
+      setFinishedAt(Date.now());
       return prev;
     });
   }
@@ -124,26 +144,90 @@ const App = () => {
         <h1 className='text-3xl font-bold text-center text-indigo-700 mb-6 drop-shadow-lg'>🌍 Flag quiz game</h1>
         {/* Show Score section  */}
         {showScore ?
-          <div className="text-center">
-            <i className="bi bi-trophy text-[70px] text-yellow-300 mx-2 inline-block animate-bounce"></i>
-            <h2 className="text-2xl font-semibold text-green-600">✅ Quiz Finished!</h2>
-            <p className="text-lg mt-2">
-              You scored <span className="font-bold">{score}</span> out of {questions.length}
-            </p>
-            {/* Reset button */}
-            <button
-              className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
-              onClick={() => {
-                setScore(0);
-                setCurrentQuestion(0);
-                setShowScore(false);
-                setAnswered(false);
-                setSelectAnswer(null);
-                fetchCountries();
-              }}
-            >
-              🔄 Reset Quiz
-            </button>
+          <div>
+            <div className="text-center mb-4">
+              <i className="bi bi-trophy text-[70px] text-yellow-300 mx-2 inline-block animate-bounce"></i>
+              <h2 className="text-3xl font-semibold text-white drop-shadow-sm">Quiz Finished!</h2>
+              <p className="text-lg mt-2 opacity-90">
+                You scored <span className="font-bold">{score}</span> out of {questions.length}
+              </p>
+              {(() => {
+                const percent = Math.round((score / questions.length) * 100);
+                const durationSec = finishedAt && startedAt ? Math.max(1, Math.round((finishedAt - startedAt) / 1000)) : null;
+                return (
+                  <div className="mt-4">
+                    <div className="w-full h-3 bg-white/30 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-green-400 to-blue-500" style={{ width: `${percent}%` }} />
+                    </div>
+                    <div className="mt-2 text-sm opacity-90">
+                      <span className="mr-2">Accuracy: <span className="font-semibold">{percent}%</span></span>
+                      {durationSec ? <span>Time: <span className="font-semibold">{durationSec}s</span></span> : null}
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="mt-4 flex gap-2 justify-center">
+                <button
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
+                  onClick={() => {
+                    setScore(0);
+                    setCurrentQuestion(0);
+                    setShowScore(false);
+                    setAnswered(false);
+                    setSelectAnswer(null);
+                    setAnswers([]);
+                    setFinishedAt(null);
+                    fetchCountries();
+                  }}
+                >
+                  🔄 Play Again
+                </button>
+                <button
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white"
+                  onClick={() => {
+                    const percent = Math.round((score / questions.length) * 100);
+                    const shareText = `I scored ${score}/${questions.length} (${percent}%) in Flag Quiz Game!`;
+                    if (navigator?.clipboard?.writeText) {
+                      navigator.clipboard.writeText(shareText).then(() => {
+                        alert('Natija nusxalandi!');
+                      }).catch(() => alert(shareText));
+                    } else {
+                      alert(shareText);
+                    }
+                  }}
+                >
+                  📋 Share Result
+                </button>
+              </div>
+            </div>
+
+            {/* Answers Review */}
+            <div className="mt-4 bg-white/15 rounded-xl p-3 max-h-72 overflow-auto">
+              <div className="text-center mb-2 font-semibold">Review answers</div>
+              <div className="space-y-2">
+                {answers.map((a, idx) => (
+                  <div key={idx} className={`flex items-center gap-3 p-2 rounded-lg backdrop-blur-md ${a.isCorrect ? 'bg-green-400/20' : 'bg-red-400/20'}`}>
+                    <img src={a.flag} alt={a.countryName} className="w-10 h-6 object-cover rounded shadow" />
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold">{a.countryName}</div>
+                      <div className="text-xs opacity-90">
+                        {a.isCorrect ? (
+                          <span className="inline-flex items-center gap-1 text-green-200"><i className="bi bi-check-circle-fill" /> Correct</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-red-200"><i className="bi bi-x-circle-fill" /> Wrong</span>
+                        )}
+                      </div>
+                    </div>
+                    {!a.isCorrect && (
+                      <div className="text-xs text-right">
+                        <div>You: <span className="font-semibold">{a.selected}</span></div>
+                        <div>Correct: <span className="font-semibold">{a.correct}</span></div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div> :
           <div>
             {/* Flag images */}
